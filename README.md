@@ -41,6 +41,8 @@ Even at the *Light* click setting, the built-in Force Touch trackpad gives a fir
 ### Homebrew
 
 ```sh
+brew tap vivogf/tap
+brew trust --cask vivogf/tap/softclick   # Homebrew asks you to trust casks from third-party taps
 brew install --cask vivogf/tap/softclick
 ```
 
