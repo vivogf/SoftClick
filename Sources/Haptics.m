@@ -121,19 +121,43 @@ CGEventRef on_click(CGEventTapProxy proxy, CGEventType type, CGEventRef event, v
     Demo *demo = info;
     if (type == kCGEventTapDisabledByTimeout || type == kCGEventTapDisabledByUserInput) {
         demo->tap_disabled = true;
-    } else if (demo->pair_profile) {
-        bool down = type == kCGEventLeftMouseDown;
-        if ((down || type == kCGEventLeftMouseUp) && demo->held != down &&
-            !interrupted && !demo->error && !demo->tap_disabled) {
-            demo->error = play_pair_edge(demo->pad, down, demo->pair_profile, demo->scale);
-            if (!demo->error) {
-                demo->held = down;
-                demo->count++;
-            }
-        }
-    } else if (type == kCGEventLeftMouseDown) {
-        click(demo);
+        return event;
     }
+    if (interrupted || demo->error || demo->tap_disabled) return event;
+
+    int64_t button;
+    switch (type) {
+        case kCGEventLeftMouseDown:
+        case kCGEventLeftMouseUp:
+            button = kCGMouseButtonLeft;
+            break;
+        case kCGEventRightMouseDown:
+        case kCGEventRightMouseUp:
+            button = kCGMouseButtonRight;
+            break;
+        case kCGEventOtherMouseDown:
+        case kCGEventOtherMouseUp:
+            if (!event) return event;
+            button = CGEventGetIntegerValueField(event, kCGMouseEventButtonNumber);
+            break;
+        default: return event;
+    }
+    // Core Graphics supports button numbers 0 through 31.
+    if (button < 0 || button >= 32) return event;
+    bool down = type == kCGEventLeftMouseDown || type == kCGEventRightMouseDown ||
+                type == kCGEventOtherMouseDown;
+    uint32_t bit = 1u << button;
+    uint32_t held = down ? demo->held_buttons | bit : demo->held_buttons & ~bit;
+    // Play one press for the first button and one release for the last.
+    if ((demo->held_buttons != 0) != (held != 0)) {
+        if (demo->pair_profile) {
+            demo->error = play_pair_edge(demo->pad, down, demo->pair_profile, demo->scale);
+            if (!demo->error) demo->count++;
+        } else if (down) {
+            click(demo);
+        }
+    }
+    if (!demo->error) demo->held_buttons = held;
     return event;
 }
 
@@ -148,8 +172,9 @@ void close_click_tap(ClickTap *tap) {
 }
 
 bool attach_click_tap(ClickTap *tap, Demo *demo) {
-    CGEventMask mask = CGEventMaskBit(kCGEventLeftMouseDown);
-    if (demo->pair_profile) mask |= CGEventMaskBit(kCGEventLeftMouseUp);
+    CGEventMask mask = CGEventMaskBit(kCGEventLeftMouseDown) | CGEventMaskBit(kCGEventLeftMouseUp) |
+                       CGEventMaskBit(kCGEventRightMouseDown) | CGEventMaskBit(kCGEventRightMouseUp) |
+                       CGEventMaskBit(kCGEventOtherMouseDown) | CGEventMaskBit(kCGEventOtherMouseUp);
     tap->port = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap,
                                  kCGEventTapOptionListenOnly, mask, on_click, demo);
     if (tap->port) tap->source = CFMachPortCreateRunLoopSource(NULL, tap->port, 0);

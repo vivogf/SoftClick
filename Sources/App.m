@@ -371,6 +371,61 @@ static bool pulse_is(int i, int32_t waveform, uint32_t profile, float scale) {
            pulses[i].scale == scale && pulses[i].duration == 1.0f;
 }
 
+static void test_other_click(Demo *demo, CGEventType type, CGMouseButton button) {
+    CGEventRef event = CGEventCreateMouseEvent(NULL, type, CGPointZero, button);
+    if (event) {
+        on_click(NULL, type, event, demo);
+        CFRelease(event);
+    } else {
+        check(false, "create a test mouse event");
+    }
+}
+
+static void test_mouse_buttons(Trackpad *pad) {
+    Demo demo = {.pad = pad, .scale = 0.5f, .pair_profile = 2};
+    pulse_count = 0;
+    on_click(NULL, kCGEventRightMouseDown, NULL, &demo);
+    on_click(NULL, kCGEventRightMouseDragged, NULL, &demo);
+    on_click(NULL, kCGEventRightMouseDown, NULL, &demo);
+    on_click(NULL, kCGEventRightMouseUp, NULL, &demo);
+    on_click(NULL, kCGEventRightMouseUp, NULL, &demo);
+    check(pulse_count == 2 && pulse_is(0, 2, 2, 0.5f) && pulse_is(1, 1, 2, 0.5f) && !demo.held_buttons,
+          "right click plays one press/release pair at the selected profile and strength");
+
+    pulse_count = 0;
+    test_other_click(&demo, kCGEventOtherMouseDown, kCGMouseButtonCenter);
+    test_other_click(&demo, kCGEventOtherMouseUp, kCGMouseButtonCenter);
+    check(pulse_count == 2 && pulse_is(0, 2, 2, 0.5f) && pulse_is(1, 1, 2, 0.5f) && !demo.held_buttons,
+          "other-button click plays the same press/release pair");
+
+    pulse_count = 0;
+    on_click(NULL, kCGEventLeftMouseDown, NULL, &demo);
+    on_click(NULL, kCGEventRightMouseDown, NULL, &demo);
+    test_other_click(&demo, kCGEventOtherMouseDown, (CGMouseButton)3);
+    on_click(NULL, kCGEventRightMouseUp, NULL, &demo);
+    on_click(NULL, kCGEventLeftMouseUp, NULL, &demo);
+    test_other_click(&demo, kCGEventOtherMouseUp, kCGMouseButtonCenter);
+    int before_release = pulse_count;
+    check(before_release == 1 && pulse_is(0, 2, 2, 0.5f) && demo.held_buttons,
+          "overlapping presses and unmatched releases do not play extra pulses");
+    test_other_click(&demo, kCGEventOtherMouseUp, (CGMouseButton)3);
+    check(before_release == 1 && pulse_count == 2 && pulse_is(1, 1, 2, 0.5f) && !demo.held_buttons,
+          "only the last held button plays a release pulse");
+
+    Demo single = {.pad = pad, .scale = 0.4f};
+    pulse_count = 0;
+    on_click(NULL, kCGEventRightMouseDown, NULL, &single);
+    test_other_click(&single, kCGEventOtherMouseDown, kCGMouseButtonCenter);
+    on_click(NULL, kCGEventRightMouseUp, NULL, &single);
+    test_other_click(&single, kCGEventOtherMouseUp, kCGMouseButtonCenter);
+    check(pulse_count == 1 && !single.held_buttons, "single-pulse mode plays right press only across overlapping clicks");
+    test_other_click(&single, kCGEventOtherMouseDown, kCGMouseButtonCenter);
+    test_other_click(&single, kCGEventOtherMouseUp, kCGMouseButtonCenter);
+    check(pulse_count == 2 && pulses[0].waveform == 6 && pulses[1].waveform == 6 &&
+          pulses[1].profile == 0 && pulses[1].scale == 0.4f && pulses[1].duration == 0.0f &&
+          !single.held_buttons, "single-pulse mode plays waveform 6 on other-button press and rearms on release");
+}
+
 static int self_test(void) {
     Trackpad pad = {.pulse = fake_pulse};
     Demo demo = {.pad = &pad, .scale = 0.3f, .pair_profile = 1};
@@ -380,7 +435,7 @@ static int self_test(void) {
     check(pulse_count == 1 && pulse_is(0, 2, 1, 0.3f), "press plays waveform 2 once, drags are ignored");
     on_click(NULL, kCGEventLeftMouseUp, NULL, &demo);
     on_click(NULL, kCGEventLeftMouseUp, NULL, &demo);
-    check(pulse_count == 2 && pulse_is(1, 1, 1, 0.3f) && !demo.held, "release plays waveform 1 once");
+    check(pulse_count == 2 && pulse_is(1, 1, 1, 0.3f) && !demo.held_buttons, "release plays waveform 1 once");
     demo.scale = 0.7f;
     on_click(NULL, kCGEventLeftMouseDown, NULL, &demo);
     check(pulse_count == 3 && pulse_is(2, 2, 1, 0.7f), "a new strength applies to the next click");
@@ -391,7 +446,9 @@ static int self_test(void) {
     pulse_result = 5;
     on_click(NULL, kCGEventLeftMouseDown, NULL, &failing);
     on_click(NULL, kCGEventLeftMouseUp, NULL, &failing);
-    check(failing.error == 5 && pulse_count == 4 && !failing.held, "a failed pulse stops playback");
+    check(failing.error == 5 && pulse_count == 4 && !failing.held_buttons, "a failed pulse stops playback");
+    pulse_result = 0;
+    test_mouse_buttons(&pad);
 
     uint32_t options = 0;
     bool light = profile_options(0, &options) && options == 1;

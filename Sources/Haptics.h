@@ -42,7 +42,7 @@ typedef struct {
     int32_t error;
     bool tap_disabled;
     uint32_t pair_profile; // Zero plays a single waveform 6 pulse on press only.
-    bool held;
+    uint32_t held_buttons;
 } Demo;
 
 void click(Demo *demo);

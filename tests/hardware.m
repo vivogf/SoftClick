@@ -41,8 +41,11 @@ static bool test_request(void) { return allow; }
 
 static void exercise_pair(float expected) {
     Demo *d = context;
+    CGEventMask button_edges = CGEventMaskBit(kCGEventLeftMouseDown) | CGEventMaskBit(kCGEventLeftMouseUp) |
+                               CGEventMaskBit(kCGEventRightMouseDown) | CGEventMaskBit(kCGEventRightMouseUp) |
+                               CGEventMaskBit(kCGEventOtherMouseDown) | CGEventMaskBit(kCGEventOtherMouseUp);
     if (!d || !enabled || system_enabled(d->pad) != 0 || d->scale != expected ||
-        watched != (CGEventMaskBit(kCGEventLeftMouseDown) | CGEventMaskBit(kCGEventLeftMouseUp))) {
+        watched != button_edges) {
         errors++;
         return;
     }
@@ -50,7 +53,7 @@ static void exercise_pair(float expected) {
     on_click(NULL, kCGEventLeftMouseDown, NULL, d);
     on_click(NULL, kCGEventLeftMouseDragged, NULL, d);
     on_click(NULL, kCGEventLeftMouseUp, NULL, d);
-    if (d->count != before + 2 || d->held || d->error) errors++;
+    if (d->count != before + 2 || d->held_buttons || d->error) errors++;
 }
 
 static void select_item(NSMenuItem *item) {

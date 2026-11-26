@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Play soft feedback for right clicks (including two-finger and corner clicks) and other mouse buttons.
+
 ## 1.0.0
 
 First public release.

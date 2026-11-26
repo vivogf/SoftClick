@@ -84,7 +84,7 @@ That's it. Look for the <img src="https://raw.githubusercontent.com/vivogf/SoftC
 ## How it works
 
 - **The stock click.** macOS doesn't click the trackpad on its own. On every press the window server asks the trackpad's actuator for waveform 2, and on release for waveform 1, with an option that follows your Click pressure setting. We found this by tracing the actuator calls.
-- **Replacing it.** Soft Click turns off the system's click response for the built-in trackpad and listens for left button press and release with a passive, listen-only event tap. On each one it plays the same waveform through Apple's `MultitouchSupport` framework at the strength you picked. At 100% it felt the same as the stock click in blind A/B tests.
+- **Replacing it.** Soft Click turns off the system's click response for the built-in trackpad and listens for left, right and other mouse button presses and releases with a passive, listen-only event tap. It plays the same waveforms through Apple's `MultitouchSupport` framework at the strength you picked. At 100% it felt the same as the stock click in blind A/B tests.
 - **Restoring it.** Before muting the stock click, the app writes a small marker file. It removes the marker only after the stock click is back and verified. If the app is force quit or crashes, the next launch restores the stock click first, and `--restore` does it from Terminal.
 
 `MultitouchSupport` is a private Apple framework, and a future macOS update could change it. If the click stops feeling right after an update, quit Soft Click to get the stock click back and please [open an issue](https://github.com/vivogf/SoftClick/issues).
@@ -94,12 +94,12 @@ Tested on a MacBook Pro with Apple M5 on macOS 27.2. Intel MacBooks with a Force
 ## Limitations
 
 - The app sees clicks, not which device made them. A click from an external mouse, a Magic Trackpad or tap to click also plays a soft pulse on the built-in trackpad.
-- Right clicks (two-finger or corner clicks) and Force Click get no pulse while the soft click is on.
+- Force Click gets no pulse while the soft click is on.
 - Changing **Click pressure** in System Settings takes effect after you turn Soft Click off and on again.
 
 ## Privacy
 
-Soft Click makes no network connections and collects nothing. It only learns that the left button went down or up. It doesn't see where you click, what you type, or any other input, and it never stores or sends events. The only link it opens is this GitHub page, from the menu.
+Soft Click makes no network connections and collects nothing. It listens only for mouse button presses and releases. It uses the button number, not the click location, and doesn't receive keystrokes or other input. It never stores or sends events. The only link it opens is this GitHub page, from the menu.
 
 ## Troubleshooting
 

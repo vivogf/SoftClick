@@ -44,10 +44,10 @@ haptics on exit, timeout or Ctrl+C.
 
 `./build/soft-click global-pair` plays the same press/release pair at scale **0.50**
 for 30 seconds in the current login session. Try selecting text or dragging
-a file with the built-in trackpad. It passively listens for left button down/up;
-it does not intercept, generate or log input. External mouse clicks and
-tap-to-click also register as left clicks, so use only physical trackpad
-presses for the trial. Right clicks get no replacement pulse.
+a file with the built-in trackpad. It passively listens for left, right and
+other mouse button presses and releases; it does not intercept, generate or
+log input. External mouse clicks and tap-to-click also register, so use only
+physical trackpad presses for the trial.
 
 Run from Terminal without sudo. If the listener is unavailable, the program
 leaves stock haptics on. macOS may require **Privacy & Security → Input
@@ -112,5 +112,5 @@ or click listener.
 
 The demo can't distinguish physical trackpad presses from tap-to-click or
 external mouse clicks. Each can trigger a pulse on the built-in trackpad.
-Right-click feedback is not replaced. The haptic controls use a private
-macOS framework and may stop working after an OS update.
+Only the system-wide demo replaces right-click feedback. The haptic controls
+use a private macOS framework and may stop working after an OS update.
