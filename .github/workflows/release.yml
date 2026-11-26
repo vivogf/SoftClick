@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  TAG: ${{ github.ref_name }}
+  ZIP: build/SoftClick.zip
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that the tag matches Info.plist
+        run: |
+          version="$(plutil -extract CFBundleShortVersionString raw Resources/Info.plist)"
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match Info.plist version $version"
+            exit 1
+          fi
+
+      # A published archive is pinned by checksum in the Homebrew cask, so it is never replaced.
+      # A draft left behind by a failed attempt is removed and built again from scratch.
+      - name: Check for an existing release
+        run: |
+          draft="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null || echo none)"
+          case "$draft" in
+            none) ;;
+            true) gh release delete "$TAG" --yes ;;
+            *) echo "::error::Release $TAG is already published"; exit 1 ;;
+          esac
+
+      - name: Build universal app
+        run: ./build.sh --release
+
+      - name: Check architectures and signature
+        run: |
+          lipo build/SoftClick.app/Contents/MacOS/SoftClick -verify_arch arm64 x86_64
+          codesign --verify --deep --strict build/SoftClick.app
+
+      - name: Publish release
+        run: |
+          sha="$(shasum -a 256 "$ZIP" | cut -d ' ' -f 1)"
+          cat > notes.md <<EOF
+          ### Install
+
+          \`\`\`sh
+          brew install --cask vivogf/tap/softclick
+          \`\`\`
+
+          Or download **SoftClick.zip** below, move the app to Applications and open it.
+          The app is not notarized: on first launch use **System Settings → Privacy & Security → Open Anyway**,
+          then allow **Input Monitoring** access.
+
+          Updating? macOS drops the Input Monitoring permission for every new version of an ad-hoc signed app.
+          Remove Soft Click from the Input Monitoring list and allow it again.
+
+          SHA-256: \`$sha\`
+
+          EOF
+          gh release create "$TAG" "$ZIP" --draft --verify-tag --title "$TAG" --notes-file notes.md --generate-notes
+
+          # The checksum in the notes must describe the file people download.
+          mkdir uploaded
+          gh release download "$TAG" --pattern SoftClick.zip --dir uploaded
+          uploaded="$(shasum -a 256 uploaded/SoftClick.zip | cut -d ' ' -f 1)"
+          if [ "$uploaded" != "$sha" ]; then
+            echo "::error::Uploaded archive checksum $uploaded differs from the built one $sha"
+            exit 1
+          fi
+          gh release edit "$TAG" --draft=false --latest
