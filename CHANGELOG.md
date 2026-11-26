@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1
 
 - Play soft feedback for right clicks (including two-finger and corner clicks) and other mouse buttons.
 
